@@ -1,0 +1,217 @@
+# ============================================================
+# Greenhouse Project .gitignore
+# PlatformIO / Embedded C++ + .NET / C#
+# ============================================================
+
+
+# ============================================================
+# OS / Editor noise
+# ============================================================
+
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+*.swp
+*.swo
+*.tmp
+*.temp
+*.bak
+*.orig
+
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+
+# ============================================================
+# Environment / secrets
+# ============================================================
+
+.env
+.env.*
+!.env.example
+
+secrets.*
+*.secret
+*.secrets.json
+
+appsettings.Local.json
+appsettings.Development.local.json
+appsettings.Production.local.json
+
+*.pfx
+*.p12
+*.pem
+*.key
+*.crt
+
+
+# ============================================================
+# PlatformIO / Embedded C++
+# ============================================================
+
+.pio/
+.pioenvs/
+.piolibdeps/
+
+# PlatformIO generated config/cache
+platformio.ini.tmp
+platformio_override.ini
+
+# Compiled firmware artifacts
+*.elf
+*.bin
+*.hex
+*.map
+*.lst
+
+# ESP32 / Arduino temporary files
+*.ino.cpp
+
+# C/C++ build output
+*.o
+*.obj
+*.a
+*.so
+*.dll
+*.dylib
+*.exe
+*.out
+
+# Dependency/cache folders that may appear in embedded projects
+.cache/
+build/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+
+# ============================================================
+# .NET / C#
+# ============================================================
+
+bin/
+obj/
+
+# Build output
+[Bb]uild/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+
+# Rider / ReSharper
+_ReSharper*/
+*.DotSettings.user
+
+# Visual Studio
+.vs/
+*.rsuser
+*.user
+*.suo
+*.cache
+*.VC.db
+*.VC.VC.opendb
+
+# Test results / coverage
+TestResults/
+.coverage
+.coveragexml
+*.coverage
+*.trx
+coverage/
+coverage.xml
+coverage.json
+lcov.info
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+.nuget/packages/
+
+# ASP.NET / publish output
+publish/
+Published/
+wwwroot/dist/
+wwwroot/build/
+
+# EF / local DB files
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Logs
+logs/
+*.log
+
+
+# ============================================================
+# Docker / deployment local files
+# ============================================================
+
+docker-compose.override.yml
+docker-compose.local.yml
+
+# Keep examples/templates
+!docker-compose.example.yml
+
+
+# ============================================================
+# Node / frontend tooling, if added later
+# ============================================================
+
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+dist/
+.next/
+.nuxt/
+.vite/
+
+
+# ============================================================
+# Python tooling, if scripts/tools are added later
+# ============================================================
+
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+
+
+# ============================================================
+# Project-specific local data
+# ============================================================
+
+data/
+local-data/
+mqtt-data/
+mosquitto/data/
+mosquitto/log/
+
+# Keep placeholder files if you use them
+!data/.gitkeep
+!local-data/.gitkeep
