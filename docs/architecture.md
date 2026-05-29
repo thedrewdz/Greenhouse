@@ -2,7 +2,7 @@
 
 # High-Level Architecture
 
-The Greenhouse Automation Platform uses a distributed local-first architecture centered around MQTT messaging.
+The Greenhouse Automation Platform uses a distributed local-first hardware architecture centered around MQTT messaging.
 
 Core components include:
 - Main Control Unit
@@ -17,6 +17,16 @@ Core components include:
 ---
 
 # Architectural Principles
+
+## Clean Architecture
+
+We will separate this solution into the following components:
+
+- Greenhouse.ControlUnit        // ASP.NET Core or Worker Service
+- Greenhouse.Core               // domain models, device model, message contracts
+- Greenhouse.Mqtt               // MQTT topic handling, publish/subscribe
+- Greenhouse.Storage            // SQLite or LiteDB persistence
+- Greenhouse.Web                // Blazor Server / Razor Pages / minimal dashboard
 
 ## Local-First
 
@@ -81,6 +91,7 @@ The Main Control Unit handles:
 - automation rules
 - telemetry ingestion
 - historical persistence
+- web UI
 - web API
 - notifications
 - OTA coordination
@@ -94,15 +105,15 @@ The Main Control Unit handles:
 ## Operating System
 
 Preferred:
-- Raspberry Pi OS Lite
+- Raspberry Pi Debian Bookworm
 
 ---
 
 ## Containerization
 
 Deployment uses:
-- Docker
-- Docker Compose
+- Phase 1 - No containerization
+- Phase 2 - consider containerization (Docker, Docker Compose)
 
 Advantages:
 - reproducibility
@@ -123,9 +134,6 @@ Reasons:
 - dependency injection
 - clean API development
 - excellent async support
-
-Alternative:
-- Python services for AI workloads
 
 ---
 
@@ -159,7 +167,13 @@ Responsibilities:
 
 ---
 
-# Sensor Nodes
+# Peripheral Nodes
+
+- Peripheral nodes consist of a single MPU with a set number of peripheral slots attached. 
+- Initially, a peripheral node will be either a sensor node, or an actuator node
+- Sensor nodes will only have sensors attached
+- Actuator nodes will only have actuators (via relays) connected
+- In the future, nodes may be configured to support a combination of sensors and actuators to support smaller installation at a lower cost.
 
 ## Platform
 
@@ -169,7 +183,7 @@ Responsibilities:
 
 ## Responsibilities
 
-Sensor nodes:
+Sensors:
 - read sensors
 - publish telemetry
 - publish heartbeat/status

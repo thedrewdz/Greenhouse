@@ -3,8 +3,7 @@
 # Overview
 
 The greenhouse platform uses a distributed device model built around modular ESP32-based nodes.
-
-Devices are categorized by capability rather than strict hardware identity.
+Each node is responsible for attached peripherals, but is essentially dumb.
 
 This allows:
 - flexibility
@@ -36,14 +35,13 @@ Primary responsibilities:
 
 ## Actuator Node
 
-A device responsible for controlling physical equipment.
+A device responsible for controlling physical equipment (through relays)
 
 Examples:
-- relay controllers
-- pump controllers
-- fan controllers
-- lighting controllers
-- valve controllers
+- pumps
+- fans
+- lighting
+- solanoid valves
 
 Primary responsibilities:
 - subscribe to MQTT commands
@@ -68,7 +66,7 @@ Examples:
 
 ## Future Vision Node
 
-Camera or machine-vision device.
+Camera or machine-vision device. Most probably just streaming frames from a web cam to be processed online.
 
 Potential capabilities:
 - growth analysis
@@ -85,30 +83,14 @@ These systems should remain logically separated from critical automation systems
 
 Each device must contain:
 
-- unique device ID
-- device type
+- unique device ID -WIFI MAC address
 - firmware version
 - hardware revision
-- capability list
-- network identity
-- optional location metadata
+- capability list - analogous with connected peripherals
+- general fault id - 0 - none
+- fault list - fault states per capability/peripheral
 
 ---
-
-# Device ID Format
-
-Recommended format:
-
-`{location}-{type}-{number}`
-
-Examples:
-
-```
-westwall-sensor-1
-mainbox-actuator-1
-planter4-hybrid-1
-reservoir-sensor-1
-```
 
 # Device Metadata
 
@@ -116,73 +98,53 @@ Example metadata structure:
 
 ```
 {
-  "deviceId": "westwall-sensor-1",
-  "deviceType": "sensor-node",
+  "deviceId": "1ADD5912AF61",
   "hardwareRevision": "A",
   "firmwareVersion": "1.0.0",
+  "uptimeSeconds": 92384,
+  "wifiRssi": -61,
   "manufacturer": "GreenhousePlatform",
   "capabilities": [
     "temperature",
     "humidity",
     "light"
-  ],
-  "location": {
-    "zone": "westwall",
-    "description": "West wall planter area"
-  }
+  ]
 }
 ```
 
 # Device Registration
 
-Devices register themselves during startup.
+- Devices register themselves during startup
+- Devices do not store config
+- Config is always received from the main unit during startup whether first time or subsequent. 
+- From the device perspective, registration and startup is the same.
 
 Registration process:
 
 - Boot
 - Connect to WiFi
 - Connect to MQTT
-- Publish registration payload
-- Receive configuration
+- Publish heartbeat containing device metadata
+- Receive configuration from main unit via MQTT
 - Enter operational state
-
-# Device Discovery Workflow
-## Registration Topic
-`greenhouse/discovery/register`
-
-## Example Registration Payload
-```
-{
-  "deviceId": "westwall-sensor-1",
-  "deviceType": "sensor-node",
-  "firmwareVersion": "1.0.0",
-  "hardwareRevision": "A",
-  "capabilities": [
-    "temperature",
-    "humidity",
-    "soil-moisture"
-  ],
-  "ipAddress": "192.168.10.42",
-  "macAddress": "AA:BB:CC:DD:EE:FF"
-}
-```
 
 # Capability-Based Design
 
-The platform should reason about capabilities rather than specific hardware implementations
+The platform should reason about capabilities and their location where possible rather than specific hardware implementations
 
 Examples of capabilities:
 
 - temperature
 - humidity
 - pump
-- relay-output
-- pwm-output
 - valve
 - camera
 - co2
 - ph
 - ec-tds
+- light
+- time of day
+- season
 
 Advantages:
 
@@ -196,22 +158,22 @@ Advantages:
 
 During startup a device:
 
-- initializes hardware
-- validates configuration
-- connects to WiFi
-- synchronizes time if available
-- connects to MQTT
-- registers itself
+- Boot
+- Connect to WiFi
+- Connect to MQTT
+- Publish heartbeat containing device metadata
+- Receive configuration from main unit via MQTT
+- Enter operational state
 
 ## Operational Phase
 
 During normal operation devices:
 
-- publish telemetry
 - receive commands
+- publish telemetry
 - report heartbeat
 - monitor local faults
-- support OTA updates
+- [future] support OTA updates
 
 ## Fault Phase
 
@@ -230,6 +192,7 @@ Devices should tolerate:
 - MQTT outages
 - controller restarts
 - power interruptions
+- [future] temporary loss of the main unit
 
 without requiring manual intervention.
 
@@ -241,28 +204,7 @@ Heartbeat interval:
 
 - typically 30–60 seconds
 
-Heartbeat payload may include:
-
-- uptime
-- RSSI
-- free memory
-- firmware version
-- error state
-- sensor fault status
-- local temperature
-
-Example:
-
-```
-{
-  "deviceId": "westwall-sensor-1",
-  "uptimeSeconds": 184392,
-  "wifiRssi": -58,
-  "freeHeap": 183224,
-  "firmwareVersion": "1.0.0",
-  "healthy": true
-}
-```
+Heartbeat payload should be the device metadata, and could include any curent fault states (possibly general and per capability).
 
 # Firmware Architecture
 
@@ -287,9 +229,9 @@ Hardware
 
 Responsible for:
 
-- greenhouse logic
 - telemetry generation
-- actuator decisions
+- actuator activation/deactivation
+- actuator safeguards by type
 - command routing
 
 ## Service Layer
@@ -298,9 +240,8 @@ Responsible for:
 
 - MQTT
 - WiFi
-- OTA updates
-- configuration management
-- logging
+- heartbeat
+- [future] OTA updates
 
 ## Hardware Abstraction Layer
 
@@ -330,12 +271,7 @@ Devices should support:
 - remote configuration updates
 - persistent configuration storage
 
-Potential storage:
-
-- ESP32 NVS
-- SPIFFS/LittleFS
-
-# OTA Update Model
+# Future OTA Update Model
 
 All production devices should support OTA firmware updates.
 
@@ -376,49 +312,15 @@ Example:
 - local emergency thermal shutdown
 - local reservoir overflow protection
 - local pump timeout logic
+- local scheduling if the central control unit becomes unavailable
 
 These protections operate independently of the central controller.
 
 # Time Synchronization
 
-Devices should maintain reasonably accurate time.
+To avoid over developing, we will not attempt to maintain time on all devices.
 
-Preferred approaches:
+- Central control unit (main unit) is responsible for timing
+- Peripheral units maintain a integer message index that is incremented with every payload published
+- message index can be assigned during startup routine based on stored value from main unit.
 
-- NTP from local controller
-- Internet NTP if available
-- MQTT-provided controller time
-
-Accurate timestamps improve:
-
-- telemetry quality
-- historical analysis
-- automation debugging
-
-# Logging and Diagnostics
-
-Devices should support:
-
-- serial debugging
-- MQTT diagnostics
-- firmware version reporting
-- structured error reporting
-
-Future enhancements may include:
-
-- remote log streaming
-- crash dump reporting
-- centralized diagnostics
-
-# Future Expansion
-
-Future device categories may include:
-
-- LoRaWAN gateways
-- RS485 industrial bridges
-- battery-powered remote sensors
-- edge AI processors
-- PLC adapters
-- solar-powered field nodes
-
-The device model should remain extensible enough to support these without redesigning the architecture.
