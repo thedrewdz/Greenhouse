@@ -2,124 +2,205 @@
 
 ## Current Goal
 
-Continue building the Greenhouse Automation Platform from the Phase 1 documentation and current .NET solution scaffold.
+Continue Phase 1 implementation of the Greenhouse Automation Platform from the new `dev` working copy.
 
-The immediate focus is to turn the control-unit documentation into a working main control unit foundation: domain models, MQTT contracts/services, storage, and a Blazor-based UI.
+The immediate foundation now exists:
 
-## Last Known Context
+- first-run setup flow
+- network recovery flow
+- appliance-oriented dashboard shell
+- contract-first messaging abstractions
+- MQTTnet-backed messaging infrastructure
 
-- The previous work centered on analyzing and refining the documentation in `docs/`.
-- The docs now describe a local-first greenhouse automation system centered around a main control unit, MQTT messaging, ESP32 peripheral nodes, local persistence, and a web UI.
-- The system is intended to stay simple in Phase 1 and avoid overbuilding future concerns such as cloud sync, AI, OTA, and containerization.
-- A .NET solution and project structure appear to have been scaffolded after or alongside the documentation work.
+Next work should build on these contracts rather than bypassing them.
 
-## Important Documentation
+## Branch / Workspace Transition
 
-- `docs/vision.md` describes the product direction and guiding principles.
-- `docs/architecture.md` describes the local-first architecture, main control unit, MQTT broker, peripheral nodes, automation engine, storage, and future expansion areas.
-- `docs/device-model.md` describes ESP32 peripheral units, device identity, metadata, registration, capabilities, lifecycle, heartbeat, firmware responsibilities, safety, and time model.
-- `docs/mqtt-topics.md` describes the simplified MQTT command and response topic design.
-- `docs/control-unit-model.md` is the main implementation instruction document for the control unit.
-- `docs/journeys/01-Main Unit Setup.md` describes the setup journey for the main control unit.
+The previous working folder was:
 
-## Current Architectural Direction
-
-- Main control unit runs locally, likely on a Raspberry Pi.
-- Phase 1 deployment should avoid Docker/containerization unless later needed.
-- Main unit owns configuration, timing, automation, persistence, and UI.
-- Peripheral units are intentionally simple.
-- Peripheral device IDs are based on Wi-Fi MAC address.
-- Peripheral units do not persist full configuration; they receive configuration from the main unit during startup.
-- MQTT is the primary communication boundary between the main unit and peripheral nodes.
-- SQLite or LiteDB-style local persistence is expected for Phase 1.
-- UI is expected to be a Blazor-based local web app/kiosk interface.
-
-## MQTT Direction
-
-Peripheral subscribe topics:
-
-- `ghcmd/rd-{deviceId}`
-- `ghcmd/wr-{deviceId}`
-
-Peripheral publish topics:
-
-- `gh/heartbeat`
-- `gh/ack`
-- `gh/rd`
-
-Main unit subscribes to:
-
-- `gh/heartbeat`
-- `gh/ack`
-- `gh/rd`
-
-Main unit publishes to:
-
-- `ghcmd/rd-{deviceId}`
-- `ghcmd/wr-{deviceId}`
-
-Payloads are JSON for Phase 1.
-
-## Current Repo State To Check On Resume
-
-Run:
-
-```powershell
-git status --short
+```text
+D:\Code\Greenhouse\p1-setup
 ```
 
-At the time this handoff was created, the repo showed:
+The user has pushed and merged the work to `main`, then created a new branch called `dev` and cloned/opened it at:
 
-- Modified tracked docs:
-  - `docs/architecture.md`
-  - `docs/device-model.md`
-  - `docs/mqtt-topics.md`
-  - `docs/vision.md`
-- Untracked docs:
-  - `docs/control-unit-model.md`
-  - `docs/journeys/`
-- Untracked solution/project folders:
-  - `Greenhouse.Core/`
-  - `Greenhouse.Core.Tests/`
-  - `Greenhouse.Mqtt/`
-  - `Greenhouse.Mqtt.Tests/`
-  - `Greenhouse.Storage/`
-  - `Greenhouse.Storage.Tests/`
-  - `Greenhouse.UI/`
-  - `Greenhouse.UI.Tests/`
-  - `Greenhouse.slnx`
-  - `Design/`
+```text
+D:\Code\Greenhouse\dev
+```
 
-Do not assume these are committed. Check the current state before editing.
+On resume, use the new folder as the working directory.
+
+First checks:
+
+```powershell
+git branch --show-current
+git status --short
+dotnet test Greenhouse.slnx --no-restore
+```
+
+Expected branch:
+
+```text
+dev
+```
+
+## Recent Commits
+
+The last completed commits in the previous workspace were:
+
+- `c02cf52 Initial project scaffold, documentation, and design`
+- `1a6c0fe Implement first-run setup and appliance dashboard`
+- `1993b87 Add contract-first messaging infrastructure`
+
+These were pushed/merged by the user before creating the `dev` branch.
+
+## Current Implementation State
+
+### Setup and Dashboard
+
+- `Greenhouse.UI` hosts the Blazor UI.
+- `/setup` implements first-run setup.
+- `/network` implements manual network reconnection/recovery.
+- `/` redirects to setup when general configuration is missing.
+- `/` shows a compact appliance dashboard when setup is complete.
+- Dashboard is optimized for a small touch screen target: 1024x600 native resolution, physical size around 150mm x 85mm.
+- Runtime app data is ignored under `Greenhouse.UI/App_Data/`.
+
+### Configuration
+
+- General configuration model lives in `Greenhouse.Core/Configuration/MainConfig.cs`.
+- Configuration persistence contract lives in `Greenhouse.Core/Setup/Abstractions/IMainConfigRepository.cs`.
+- Current persistence implementation is JSON-backed in `Greenhouse.Storage/Configuration/JsonMainConfigRepository.cs`.
+- JSON storage is a Phase 1 stand-in; SQLite is still expected later.
+
+### Network
+
+- Network abstraction is `INetworkService`.
+- The current implementation is `DevelopmentNetworkService` in `Greenhouse.UI/Infrastructure/`.
+- It simulates connection success and does not change Wi-Fi on the host.
+- Future Raspberry Pi implementation should likely call Debian/NetworkManager tooling such as `nmcli`, but behind `INetworkService`.
+
+### Messaging
+
+Core has no MQTT-specific namespace or contract names.
+
+Core messaging contracts live under:
+
+```text
+Greenhouse.Core/Messaging/
+```
+
+Important contracts/models:
+
+- `MessagingOptions`
+- `MessagingTopics`
+- `MessageEnvelope`
+- `IMessagingRepository`
+- `ICommandPublisher`
+- `IMessageRouter`
+- `IConnectedService`
+- message payload records under `Greenhouse.Core/Messaging/Messages/`
+
+MQTT-specific implementation lives under:
+
+```text
+Greenhouse.Mqtt/
+```
+
+Important implementation classes:
+
+- `Repository`
+- `CommandPublisher`
+- `ConnectedService`
+- `LoggingMessageRouter`
+- `JsonMessageSerializer`
+- `ServiceCollectionExtensions`
+
+`Greenhouse.UI` wires messaging with:
+
+```csharp
+builder.Services.AddMessaging(builder.Configuration);
+```
+
+Configuration key:
+
+```json
+"Messaging": {
+  "Host": "localhost",
+  "Port": 1883,
+  "ClientId": "greenhouse-main-control"
+}
+```
+
+The current `ConnectedService` tries to connect at startup, subscribes to:
+
+- `gh/heartbeat`
+- `gh/ack`
+- `gh/rd`
+
+If the broker is unavailable, the web app should not crash.
+
+## Current Documentation
+
+Important docs:
+
+- `docs/control-unit-model.md`
+- `docs/journeys/01-Main Unit Setup.md`
+- `docs/journeys/02-Network Recovery.md`
+- `docs/journeys/03-Empty Dashboard.md`
+- `docs/mqtt-topics.md`
+- `docs/device-model.md`
+- `docs/architecture.md`
+
+`docs/control-unit-model.md` now contains explicit coding rules:
+
+- contract-first design
+- avoid tight coupling
+- avoid tight coupling in naming conventions
+- use technology-neutral core contracts
+- keep implementation-specific names/details inside the owning implementation project
+- avoid redundant names within any project or namespace
+
+These rules apply across the whole solution, not only to MQTT.
+
+## Architectural Decisions To Preserve
+
+- Build contract-first.
+- Avoid direct infrastructure references from UI/application/domain code.
+- Do not put MQTT-specific names in `Greenhouse.Core`.
+- Do not use redundant prefixes inside implementation projects unless needed to remove ambiguity.
+- Use `Greenhouse.Mqtt` as an infrastructure implementation of generic messaging contracts.
+- Keep UI appliance-focused for a small touch screen.
+- Do not overbuild cloud, AI, auth, OTA, or automation rules before the core local workflow works.
 
 ## Likely Next Steps
 
-1. Read `docs/control-unit-model.md` first.
-2. Inspect the scaffolded .NET projects and solution file.
-3. Compare project names against the docs and normalize naming if needed.
-4. Identify the first coding target from `docs/control-unit-model.md`.
-5. Implement the smallest useful Phase 1 foundation, probably starting with:
-   - domain/device models in `Greenhouse.Core`
-   - MQTT topic and payload contracts in `Greenhouse.Mqtt`
-   - persistence models/repositories in `Greenhouse.Storage`
-   - basic UI shell in `Greenhouse.UI`
-6. Add focused tests for contracts and model behavior.
-7. Run the relevant .NET test/build commands.
+1. Switch to `D:\Code\Greenhouse\dev`.
+2. Confirm branch and clean status.
+3. Run tests.
+4. Decide the next user journey.
+5. Likely next implementation area: device heartbeat ingestion.
+
+For heartbeat ingestion, stay contract-first:
+
+- define device registry/heartbeat contracts in `Greenhouse.Core`
+- route `gh/heartbeat` through `IMessageRouter`
+- store/update known devices behind a repository abstraction
+- update dashboard peripheral count from an application service
+- keep MQTTnet-specific parsing/transport details inside `Greenhouse.Mqtt`
 
 ## Open Questions
 
-- Should persistence use SQLite directly, Entity Framework Core, Dapper, or LiteDB?
-- Should project names match `Greenhouse.ControlUnit.UI` from the docs or the currently scaffolded `Greenhouse.UI`?
-- Should MQTT use an external broker installed on the Raspberry Pi, an embedded broker, or only an MQTT client library in the app?
-- Should authentication be included in Phase 1 or deferred until after local setup and device registration flows are working?
-- What is the first real hardware target: mock MQTT devices, ESP32 firmware, or the Raspberry Pi control unit?
+- Should Phase 1 persistence move from JSON to SQLite now or after heartbeat ingestion?
+- Should device registry live first in memory, then persist later, or go directly to SQLite?
+- Should the dashboard display raw heartbeat count, known peripheral count, or device cards first?
+- When should the real Raspberry Pi `INetworkService` be implemented?
+- Should the Mosquitto broker be installed as an OS service on the Pi, or managed by the app deployment process?
 
-## How To Resume
+## Resume Prompt
 
-Start the next session with:
+Use this after switching workspaces:
 
 ```text
-Read docs/agent-handoff.md and continue from the likely next steps.
+Read docs/agent-handoff.md in D:\Code\Greenhouse\dev and continue from the likely next steps.
 ```
-
-Then inspect the repo before making changes.
