@@ -1,0 +1,78 @@
+@page "/"
+@using Greenhouse.Core.Configuration
+@using Greenhouse.Core.Setup
+@using Greenhouse.Core.Setup.Abstractions
+@inject SetupApplicationService SetupService
+@inject IMainConfigRepository MainConfigRepository
+@inject INetworkService NetworkService
+@inject NavigationManager Navigation
+
+<PageTitle>Home</PageTitle>
+
+@if (isLoading)
+{
+    <p>Loading...</p>
+}
+else if (config is not null)
+{
+    @if (!isNetworkConnected)
+    {
+        <div class="network-alert" role="alert">
+            <div>
+                <strong>Offline</strong>
+                <span>Network features are unavailable.</span>
+            </div>
+            <a class="touch-button" href="network">Connect</a>
+        </div>
+    }
+
+    <section class="dashboard-header">
+        <div>
+            <p class="eyebrow">Main Control Unit</p>
+            <h1>@config.GreenhouseName</h1>
+            <p>@config.GreenhouseLocation</p>
+        </div>
+
+        <div class="status-pill @(isNetworkConnected ? "status-ok" : "status-warning")">
+            @(isNetworkConnected ? "Online" : "Offline")
+        </div>
+    </section>
+
+    <section class="dashboard-grid">
+        <div class="dashboard-tile">
+            <div class="tile-heading">
+                <span>Peripheral Units</span>
+                <strong>0</strong>
+            </div>
+            <p>Connect a sensor or actuator unit to get more from your unit.</p>
+        </div>
+
+        <div class="dashboard-tile">
+            <div class="tile-heading">
+                <span>Automation Rules</span>
+                <strong>0</strong>
+            </div>
+            <p>Rules can be created after peripheral units are connected.</p>
+        </div>
+    </section>
+}
+
+@code {
+    private bool isLoading = true;
+    private MainConfig? config;
+    private bool isNetworkConnected;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var status = await SetupService.GetStatusAsync();
+        if (!status.IsSetupComplete)
+        {
+            Navigation.NavigateTo("/setup", replace: true);
+            return;
+        }
+
+        config = await MainConfigRepository.GetAsync();
+        isNetworkConnected = await NetworkService.IsConnectedAsync();
+        isLoading = false;
+    }
+}

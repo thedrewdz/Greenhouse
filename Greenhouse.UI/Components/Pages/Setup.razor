@@ -1,0 +1,149 @@
+@page "/setup"
+@using Greenhouse.Core.Setup
+@inject SetupApplicationService SetupService
+@inject NavigationManager Navigation
+
+<PageTitle>Main Control Unit Setup</PageTitle>
+
+<section class="setup-shell">
+    <div class="setup-header">
+        <p class="eyebrow">Main Control Unit</p>
+        <h1>Setup</h1>
+        <p>Configure the network connection and basic greenhouse details.</p>
+    </div>
+
+    @if (isLoading)
+    {
+        <p>Loading setup...</p>
+    }
+    else if (currentStep == SetupStartStep.NetworkConnection)
+    {
+        <section class="setup-panel">
+            <div class="step-indicator">Step 1 of 2</div>
+            <h2>Network Connection</h2>
+            <p class="panel-copy">Enter the network details manually. Leave the password blank for an open network.</p>
+
+            @if (!string.IsNullOrWhiteSpace(networkError))
+            {
+                <div class="alert alert-danger" role="alert">@networkError</div>
+            }
+
+            <div class="form-field">
+                <label for="network-name">Network name</label>
+                <input id="network-name" class="form-control" @bind="networkName" disabled="@isBusy" autocomplete="off" />
+            </div>
+
+            <div class="form-field">
+                <label for="network-password">Network password</label>
+                <input id="network-password" class="form-control" type="password" @bind="networkPassword" disabled="@isBusy" autocomplete="off" />
+            </div>
+
+            <button class="btn btn-primary setup-action" type="button" @onclick="ConnectNetworkAsync" disabled="@isBusy">
+                @(isBusy ? "Connecting..." : "Next")
+            </button>
+        </section>
+    }
+    else if (currentStep == SetupStartStep.GeneralInformation)
+    {
+        <section class="setup-panel">
+            <div class="step-indicator">Step 2 of 2</div>
+            <h2>General Information</h2>
+            <p class="panel-copy">Name this greenhouse so it is clear what the control unit is managing.</p>
+
+            @if (generalErrors.Count > 0)
+            {
+                <div class="alert alert-danger" role="alert">
+                    @foreach (var error in generalErrors)
+                    {
+                        <div>@error</div>
+                    }
+                </div>
+            }
+
+            <div class="form-field">
+                <label for="greenhouse-name">Greenhouse Name</label>
+                <input id="greenhouse-name" class="form-control" @bind="greenhouseName" disabled="@isBusy" placeholder="Orchid Palace" />
+            </div>
+
+            <div class="form-field">
+                <label for="greenhouse-location">Greenhouse Location</label>
+                <input id="greenhouse-location" class="form-control" @bind="greenhouseLocation" disabled="@isBusy" placeholder="Back Garden" />
+            </div>
+
+            <div class="form-field">
+                <label for="greenhouse-description">Description</label>
+                <textarea id="greenhouse-description" class="form-control" rows="4" @bind="description" disabled="@isBusy" placeholder="Hydroponics based grow beds with controlled lighting."></textarea>
+            </div>
+
+            <button class="btn btn-primary setup-action" type="button" @onclick="SaveGeneralInformationAsync" disabled="@isBusy">
+                @(isBusy ? "Saving..." : "Done")
+            </button>
+        </section>
+    }
+</section>
+
+@code {
+    private bool isLoading = true;
+    private bool isBusy;
+    private SetupStartStep currentStep;
+    private string networkName = string.Empty;
+    private string networkPassword = string.Empty;
+    private string? networkError;
+    private string greenhouseName = string.Empty;
+    private string greenhouseLocation = string.Empty;
+    private string? description;
+    private IReadOnlyList<string> generalErrors = Array.Empty<string>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var status = await SetupService.GetStatusAsync();
+        if (status.IsSetupComplete)
+        {
+            Navigation.NavigateTo("/", replace: true);
+            return;
+        }
+
+        currentStep = status.StartStep;
+        isLoading = false;
+    }
+
+    private async Task ConnectNetworkAsync()
+    {
+        isBusy = true;
+        networkError = null;
+
+        var result = await SetupService.ConnectNetworkAsync(
+            new NetworkCredentials(networkName, networkPassword));
+
+        if (!result.Succeeded)
+        {
+            networkError = result.ErrorMessage ?? "Unable to connect to the network.";
+            networkName = string.Empty;
+            networkPassword = string.Empty;
+            isBusy = false;
+            return;
+        }
+
+        networkPassword = string.Empty;
+        currentStep = SetupStartStep.GeneralInformation;
+        isBusy = false;
+    }
+
+    private async Task SaveGeneralInformationAsync()
+    {
+        isBusy = true;
+        generalErrors = Array.Empty<string>();
+
+        var result = await SetupService.WriteGeneralConfigurationAsync(
+            new GeneralConfigurationRequest(greenhouseName, greenhouseLocation, description));
+
+        if (!result.IsValid)
+        {
+            generalErrors = result.Errors;
+            isBusy = false;
+            return;
+        }
+
+        Navigation.NavigateTo("/", replace: true);
+    }
+}

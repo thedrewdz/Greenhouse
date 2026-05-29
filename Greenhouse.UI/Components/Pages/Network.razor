@@ -1,0 +1,77 @@
+@page "/network"
+@using Greenhouse.Core.Setup
+@inject SetupApplicationService SetupService
+@inject NavigationManager Navigation
+
+<PageTitle>Network Connection</PageTitle>
+
+<section class="setup-shell">
+    <div class="setup-header">
+        <p class="eyebrow">Main Control Unit</p>
+        <h1>Network Connection</h1>
+        <p>Connect this unit to a different network.</p>
+    </div>
+
+    <section class="setup-panel">
+        <h2>Connect manually</h2>
+        <p class="panel-copy">Enter the network details manually. Leave the password blank for an open network.</p>
+
+        @if (!string.IsNullOrWhiteSpace(networkError))
+        {
+            <div class="alert alert-danger" role="alert">@networkError</div>
+        }
+
+        <div class="form-field">
+            <label for="network-name">Network name</label>
+            <input id="network-name" class="form-control" @bind="networkName" disabled="@isBusy" autocomplete="off" />
+        </div>
+
+        <div class="form-field">
+            <label for="network-password">Network password</label>
+            <input id="network-password" class="form-control" type="password" @bind="networkPassword" disabled="@isBusy" autocomplete="off" />
+        </div>
+
+        <div class="action-row">
+            <button class="btn btn-primary setup-action" type="button" @onclick="ConnectNetworkAsync" disabled="@isBusy">
+                @(isBusy ? "Connecting..." : "Connect")
+            </button>
+
+            <button class="btn btn-link" type="button" @onclick="Cancel" disabled="@isBusy">
+                Cancel
+            </button>
+        </div>
+    </section>
+</section>
+
+@code {
+    private bool isBusy;
+    private string networkName = string.Empty;
+    private string networkPassword = string.Empty;
+    private string? networkError;
+
+    private async Task ConnectNetworkAsync()
+    {
+        isBusy = true;
+        networkError = null;
+
+        var result = await SetupService.ConnectNetworkAsync(
+            new NetworkCredentials(networkName, networkPassword));
+
+        if (!result.Succeeded)
+        {
+            networkError = result.ErrorMessage ?? "Unable to connect to the network.";
+            networkName = string.Empty;
+            networkPassword = string.Empty;
+            isBusy = false;
+            return;
+        }
+
+        networkPassword = string.Empty;
+        Navigation.NavigateTo("/", replace: true);
+    }
+
+    private void Cancel()
+    {
+        Navigation.NavigateTo("/");
+    }
+}
