@@ -31,6 +31,9 @@ Desktop.ini
 *.userosscache
 *.sln.docstates
 
+# Greenhouse runtime data
+Greenhouse.UI/App_Data/
+
 
 # ============================================================
 # Environment / secrets

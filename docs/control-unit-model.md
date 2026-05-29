@@ -833,6 +833,8 @@ Keep setup implementation aligned with Clean Architecture:
 - Blazor components should collect user input and display state only.
 - Setup components should call application services or use cases.
 - Application services should coordinate validation, persistence, and operating-system integration.
+- Network setup should be initiated through an `INetworkService` abstraction, not directly from UI components.
+- `INetworkService` is the application boundary for network status, connection attempts, and future network events or network changes.
 - Domain/configuration models should live outside the UI project.
 - Storage implementation details should stay behind repository or persistence abstractions.
 - Do not put setup persistence logic directly in Blazor components.
@@ -847,6 +849,7 @@ The application should be able to:
 - Skip setup when general configuration exists.
 - Store greenhouse name, greenhouse location, and optional description in local persistence.
 - Retrieve general configuration for application state after setup completes.
+- When general configuration exists but network connection is unavailable, route to the Network Recovery journey rather than first-run setup.
 
 A use case such as `WriteGeneralConfiguration` may store configuration details through the appropriate application, repository, and persistence layers.
 
@@ -857,7 +860,7 @@ For Phase 1:
 - Network name is entered manually.
 - Network password may be blank to support open networks.
 - Wi-Fi network scanning is deferred.
-- Changing Wi-Fi networks from the unit after setup is deferred.
+- Changing Wi-Fi networks from a configured unit is covered by the Network Recovery journey when the unit is offline.
 - Editing general configuration after setup should be covered by a separate user journey.
 
 ---
@@ -1120,6 +1123,7 @@ or create scopes explicitly.
 - Use Interactive Server / Global interactivity.
 - Add initial project structure.
 - Add basic dashboard page.
+- Show empty dashboard states for missing peripheral units and rules.
 - Add app settings for MQTT broker host/port.
 
 ### Milestone 2: MQTT Connection

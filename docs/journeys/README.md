@@ -4,6 +4,12 @@ This folder contains user journey stories for the Greenhouse Automation Platform
 
 Use these documents to describe how real users interact with the system across setup, monitoring, automation, maintenance, troubleshooting, and future expansion scenarios.
 
+Current journeys:
+
+- `01-Main Unit Setup.md`
+- `02-Network Recovery.md`
+- `03-Empty Dashboard.md`
+
 Suggested journey structure:
 
 ```text

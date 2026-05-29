@@ -30,6 +30,8 @@ This is a Day 1 requirement that will evolve slightly in time.
 **When** general configuration is found in the database.
 **Then** skip setup and proceed to the normal application experience.
 
+If general configuration exists but the unit does not have a network connection, use the Network Recovery journey instead of the setup journey.
+
 **Given** the **Main Control Unit** starts up.
 **When** general configuration is not found in the database and the unit is not connected to a network.
 **Then** Main Control Unit Setup is required, and the first step is Network Connection.
@@ -161,6 +163,5 @@ Minimum validation:
 ## Deferred Journeys
 
 - Scanning and selecting available Wi-Fi networks.
-- Changing the Main Control Unit network after setup.
 - Editing general configuration after setup.
 

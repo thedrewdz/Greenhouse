@@ -1,4 +1,9 @@
+using Greenhouse.Core.Setup;
+using Greenhouse.Core.Setup.Abstractions;
+using Greenhouse.Storage.Configuration;
 using Greenhouse.UI.Components;
+using Greenhouse.UI.Infrastructure;
+using Microsoft.AspNetCore.DataProtection;
 
 namespace Greenhouse.UI
 {
@@ -8,9 +13,22 @@ namespace Greenhouse.UI
         {
             var builder = WebApplication.CreateBuilder(args);
 
+            builder.Logging.ClearProviders();
+            builder.Logging.AddConsole();
+            builder.Logging.AddDebug();
+
             // Add services to the container.
             builder.Services.AddRazorComponents()
                 .AddInteractiveServerComponents();
+
+            builder.Services.AddSingleton<IMainConfigRepository>(_ =>
+                new JsonMainConfigRepository(
+                    Path.Combine(builder.Environment.ContentRootPath, "App_Data", "main-config.json")));
+            builder.Services.AddSingleton<INetworkService, DevelopmentNetworkService>();
+            builder.Services.AddScoped<SetupApplicationService>();
+            builder.Services.AddDataProtection()
+                .PersistKeysToFileSystem(
+                    new DirectoryInfo(Path.Combine(builder.Environment.ContentRootPath, "App_Data", "DataProtectionKeys")));
 
             var app = builder.Build();
 
