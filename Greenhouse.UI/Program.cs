@@ -1,6 +1,7 @@
 using Greenhouse.Core.Setup;
 using Greenhouse.Core.Setup.Abstractions;
 using Greenhouse.Storage.Configuration;
+using Greenhouse.Mqtt;
 using Greenhouse.UI.Components;
 using Greenhouse.UI.Infrastructure;
 using Microsoft.AspNetCore.DataProtection;
@@ -26,6 +27,7 @@ namespace Greenhouse.UI
                     Path.Combine(builder.Environment.ContentRootPath, "App_Data", "main-config.json")));
             builder.Services.AddSingleton<INetworkService, DevelopmentNetworkService>();
             builder.Services.AddScoped<SetupApplicationService>();
+            builder.Services.AddMessaging(builder.Configuration);
             builder.Services.AddDataProtection()
                 .PersistKeysToFileSystem(
                     new DirectoryInfo(Path.Combine(builder.Environment.ContentRootPath, "App_Data", "DataProtectionKeys")));

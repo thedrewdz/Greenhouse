@@ -756,11 +756,15 @@ This avoids unnecessary NTP/time complexity on peripheral nodes.
 
 ---
 
-## MQTT Service Design
+## Messaging Service Design
 
-Implement MQTT integration as a hosted background service.
+Implement messaging integration as a hosted background service.
 
-Implement abstractions from `Greenhouse.Core`
+Implement messaging abstractions from `Greenhouse.Core`.
+
+The core model must not depend on MQTT concepts or MQTTnet types. Use generic messaging names in `Greenhouse.Core`, such as `MessagingOptions`, `MessagingTopics`, and `IMessagingRepository`.
+
+The MQTTnet-specific implementation belongs in the infrastructure-oriented `Greenhouse.Mqtt` project behind repository and service abstractions. UI components and application services should not reference MQTTnet types directly.
 
 ```csharp
 public interface IConnectedService
@@ -780,6 +784,15 @@ public interface IMessageRouter
 {
     Task RouteAsync(string topic, string payload, CancellationToken cancellationToken = default);
 }
+
+public interface IMessagingRepository
+{
+    bool IsConnected { get; }
+    Task ConnectAsync(CancellationToken cancellationToken = default);
+    Task DisconnectAsync(CancellationToken cancellationToken = default);
+    Task SubscribeAsync(string topic, CancellationToken cancellationToken = default);
+    Task PublishAsync(string topic, string payload, CancellationToken cancellationToken = default);
+}
 ```
 
 The hosted service should:
@@ -790,7 +803,7 @@ The hosted service should:
 - Subscribe to `gh/rd`.
 - Handle reconnects.
 - Log connection status.
-- Never crash the web app because of a bad MQTT payload.
+- Never crash the web app because of a bad message payload.
 
 Bad messages should be logged and ignored or recorded as malformed events.
 
@@ -1097,8 +1110,8 @@ Example:
 
 ```csharp
 builder.Services.AddSingleton<ICurrentOperator, LocalKioskOperator>();
-builder.Services.AddSingleton<IMessageRouter, MqttMessageRouter>();
-builder.Services.AddHostedService<IConnectedService, MqttService>();
+builder.Services.AddSingleton<IMessageRouter, LoggingMessageRouter>();
+builder.Services.AddHostedService<IConnectedService, ConnectedService>();
 builder.Services.AddScoped<IDeviceService, DeviceService>();
 ```
 
@@ -1124,9 +1137,9 @@ or create scopes explicitly.
 - Add initial project structure.
 - Add basic dashboard page.
 - Show empty dashboard states for missing peripheral units and rules.
-- Add app settings for MQTT broker host/port.
+- Add app settings for messaging host/port.
 
-### Milestone 2: MQTT Connection
+### Milestone 2: Messaging Connection
 
 - Add MQTT client package.
 - Connect to Mosquitto.
@@ -1173,6 +1186,7 @@ or create scopes explicitly.
 Prefer:
 
 - Clear C# object models.
+- Contract-first design.
 - Explicit interfaces for meaningful service boundaries.
 - Async/await for I/O.
 - Cancellation tokens on background and I/O services.
@@ -1186,6 +1200,9 @@ Avoid:
 - Top-level statements.
 - Direct MQTT calls from Blazor components.
 - Business logic in UI components.
+- Tight coupling in dependencies or naming conventions.
+- Technology-specific names in core contracts.
+- Redundant names within a project or namespace.
 - Hard-coded device IDs outside tests/demo config.
 - Hard-coded greenhouse layouts.
 - Cloud dependencies in core control paths.
@@ -1193,12 +1210,24 @@ Avoid:
 - Overbuilding authentication before the core system works.
 - Docker/containerization in Phase 1 unless specifically requested.
 
+### Contract-First Rules
+
+- Design contracts before implementations.
+- Put cross-boundary contracts in the owning abstraction layer before writing infrastructure code.
+- Depend on abstractions from application/core code; infrastructure projects should realize those abstractions.
+- Do not let UI components, application services, or domain models depend directly on infrastructure libraries.
+- Avoid tight coupling in naming as well as dependencies.
+- Use technology-neutral names in core contracts. For example, prefer `IMessagingRepository` over `IMqttRepository`.
+- Keep implementation-specific names and details inside the project that owns that implementation. For example, MQTTnet types and MQTT-specific details belong in `Greenhouse.Mqtt`; storage-provider details belong in `Greenhouse.Storage`; UI-framework details belong in `Greenhouse.UI`.
+- Avoid redundant names within any project or namespace. For example, in `Greenhouse.Mqtt`, prefer names like `Repository`, `CommandPublisher`, and `ConnectedService` rather than `MqttRepository`, `MqttCommandPublisher`, or `MqttConnectedService`.
+- Add a technology prefix only when it removes real ambiguity or distinguishes multiple implementations in the same namespace.
+
 ---
 
 ## Suggested Options Classes
 
 ```csharp
-public sealed class MqttOptions
+public sealed class MessagingOptions
 {
     public string Host { get; set; } = "localhost";
     public int Port { get; set; } = 1883;
@@ -1215,7 +1244,7 @@ Example `appsettings.json`:
 
 ```json
 {
-  "Mqtt": {
+  "Messaging": {
     "Host": "localhost",
     "Port": 1883,
     "ClientId": "greenhouse-control-unit"
