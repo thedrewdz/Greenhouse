@@ -56,8 +56,8 @@ Create a solution that can start simple but cleanly separates responsibilities.
 Recommended projects:
 
 ```text
-Greenhouse.ControlUnit.UI
-Greenhouse.ControlUnit.UI.Tests
+Greenhouse.UI
+Greenhouse.UI.Tests
 Greenhouse.Core
 Greenhouse.Core.Tests
 Greenhouse.Mqtt
@@ -80,7 +80,7 @@ Each project should have its own set of tests in a project co-located with the p
 
 ### Project Responsibilities
 
-#### `Greenhouse.ControlUnit.UI`
+#### `Greenhouse.UI`
 
 ASP.NET Core Blazor Web App.
 
@@ -237,7 +237,8 @@ Do not use top-level statements.
 Use this style:
 
 ```csharp
-namespace Greenhouse.ControlUnit.Web;
+namespace Greenhouse.UI;
+
 
 public sealed class Program
 {
@@ -332,7 +333,15 @@ Future roles may include:
 
 The platform uses modular ESP32-based peripheral nodes.
 
-A peripheral node is considered mostly dumb. The Main Control Unit owns configuration and operational intelligence.
+A peripheral control unit manages bus communications and relays canonicalized slot data. The Main Control Unit owns configuration and overall operational intelligence.
+
+Phase 1 peripheral architecture assumptions:
+
+- Each peripheral control unit has a fixed slot count.
+- Slots connect over 4-wire cables.
+- Connected slot modules share an I2C bus on the peripheral control unit.
+- Sensor and actuator modules canonicalize values and state before reporting through the peripheral control unit.
+- Sensor module I2C addresses are unique and may encode sensor family ranges such as 0x20-0x2F for moisture sensors.
 
 Initial node categories:
 
@@ -359,13 +368,12 @@ Topic Example:
 
 `ghcmd/{commandType}-{deviceId}`
 
-could become:
+Examples:
 
-`ghcmd/rd-1ADD5912AF61/1`
+- `ghcmd/rd-1ADD5912AF61`
+- `ghcmd/rd-3555FA1BD1EE`
 
-Topic-facing format may use:
-
-Be consistent once implemented.
+The topic format stays the same while payload content can differ per command.
 
 Each device must expose or report:
 
@@ -445,7 +453,7 @@ Expected startup flow:
 6. Main Control Unit sends configuration to the device.
 7. Device enters operational state.
 
-In Phase 1, it is acceptable for step 6 to be stubbed or logged if the device firmware does not yet support configuration payloads. This feature will be used in the future to allow a device to operate temporarily if control unit connectivity is lost.
+In Phase 1, it is acceptable for step 6 to be stubbed or logged if the device firmware does not yet support configuration payloads. Devices should not persist long-term configuration locally in Phase 1. The Main Control Unit is the source of truth and devices should receive configuration from the Main Control Unit at startup and when updates occur.
 
 The Main Control Unit must treat heartbeat as both:
 
@@ -564,37 +572,12 @@ Binary payloads may be considered later only if needed.
 
 ## MQTT Payload Contracts
 
-### Read Command
+Use one command schema for both read and write topics.
 
 Topic:
 
 ```text
 ghcmd/rd-{deviceId}
-```
-
-Payload:
-
-```json
-{
-  "slot_id": 0
-}
-```
-
-C# model:
-
-```csharp
-public sealed record ReadCommandMessage
-{
-    [JsonPropertyName("slot_id")]
-    public int SlotId { get; init; }
-}
-```
-
-### Write Command
-
-Topic:
-
-```text
 ghcmd/wr-{deviceId}
 ```
 
@@ -602,27 +585,42 @@ Payload:
 
 ```json
 {
+  "id": 502,
   "slot_id": 4,
-  "state": "on"
+  "state": "on",
+  "value": 1
 }
 ```
+
+Field requirements and types:
+
+- id: required integer, monotonic main-unit message index.
+- slot_id: required integer, target slot index.
+- state: required string, use none for read commands.
+- value: required number, use 0 default when not needed.
 
 C# model:
 
 ```csharp
-public sealed record WriteCommandMessage
+public sealed record CommandMessage
 {
+    [JsonPropertyName("id")]
+    public long Id { get; init; }
+
     [JsonPropertyName("slot_id")]
     public int SlotId { get; init; }
 
     [JsonPropertyName("state")]
     public required string State { get; init; }
+
+    [JsonPropertyName("value")]
+    public double Value { get; init; }
 }
 ```
 
 ### Response Messages
 
-Currently all response message share the same schema. This may diverge in the future, if the need arises.
+Use one canonical response schema for both ack and read responses.
 
 ### Acknowledge Message
 
@@ -641,7 +639,7 @@ Payload:
   "slot_id": 4,
   "value": 0,
   "state": "on",
-  "error": 0
+  "error_code": 0
 }
 ```
 
@@ -661,8 +659,8 @@ Payload:
   "device_id": "1ADD5912AF61",
   "slot_id": 5,
   "value": 19.2,
-  "state": "",
-  "error": 0
+  "state": "none",
+  "error_code": 0
 }
 ```
 
@@ -689,9 +687,18 @@ Payload:
   "slot_id": 4,
   "value": 0,
   "state": "error",
-  "error_code": 1000
+  "error_code": 1002
 }
 ```
+
+Response field requirements and types:
+
+- id: required integer, peripheral message index.
+- device_id: required string, peripheral WiFi MAC address.
+- slot_id: required integer.
+- value: required number, canonical value or 0 default.
+- state: required string, canonical state or none.
+- error_code: required integer, 0 for success.
 
 ### Heartbeat
 
@@ -711,13 +718,45 @@ Payload:
   "firmware_version": "1.0.3",
   "uptime_seconds": 92384,
   "wifi_rssi": -61,
+  "slot_count": 8,
+  "slots": [
+    {
+      "slot_id": 0,
+      "direction": "sensor",
+      "i2c_address": "0x25",
+      "capability": "moisture",
+      "state": "none",
+      "value": 41.7,
+      "error_code": 0
+    },
+    {
+      "slot_id": 4,
+      "direction": "actuator",
+      "i2c_address": "0x51",
+      "capability": "pump",
+      "state": "off",
+      "value": 0,
+      "error_code": 0
+    }
+  ],
   "capabilities": [
-    "temperature",
-    "humidity",
-    "light"
+    "moisture",
+    "pump"
   ]
 }
 ```
+
+Heartbeat requirements:
+
+- Include discovered slot topology and current slot state.
+- Include sensor and actuator module identity using i2c_address.
+- Use heartbeat as both liveness and topology update signal.
+
+Main-unit heartbeat processing:
+
+- No stored config for device: trigger new peripheral onboarding flow.
+- Stored config exists but slot topology changed: trigger reconfiguration flow.
+- Stored config exists and topology matches: update runtime state only.
 
 Heartbeat interval:
 
@@ -839,21 +878,47 @@ public interface ITelemetryService
 
 ## Setup and General Configuration
 
-The setup user journey is documented separately in `docs/journeys/01-Main Unit Setup.md`.
+The setup user journeys are documented separately in:
+
+- `docs/journeys/01-Main Unit Setup.md`
+- `docs/journeys/04-Peripheral Onboarding and Reconfiguration.md`
+
+Use the following flow names consistently to avoid ambiguity:
+
+- Main Control Unit Setup Flow: first-run setup of the main control unit (network + greenhouse general configuration).
+- Peripheral Control Unit Onboarding/Reconfiguration Flow: discovery-based setup and reconfiguration of peripheral control units and their slot mappings.
+
+Flow separation rules:
+
+- Do not call peripheral onboarding "setup" in code comments, UI labels, or docs.
+- Do not use Main Control Unit setup screens for peripheral onboarding or slot mapping.
+- Do not use peripheral onboarding screens for Main Control Unit network/general configuration.
+- Main Control Unit setup state is based on presence of main general configuration.
+- Peripheral onboarding state is based on heartbeat discovery and stored peripheral topology comparison.
+
+Routing separation:
+
+- Missing main general configuration: route to Main Control Unit Setup Flow.
+- Main general configuration exists but network is unavailable: route to Network Recovery Flow.
+- Main general configuration exists and heartbeat reports unknown peripheral: route to Peripheral Control Unit Onboarding Flow.
+- Main general configuration exists and heartbeat reports topology drift for known peripheral: route to Peripheral Control Unit Reconfiguration Flow.
+- Main general configuration exists and no onboarding/reconfiguration condition is active: route to normal dashboard experience.
 
 Keep setup implementation aligned with Clean Architecture:
 
 - Blazor components should collect user input and display state only.
-- Setup components should call application services or use cases.
+- Main setup and peripheral onboarding components should call application services or use cases.
 - Application services should coordinate validation, persistence, and operating-system integration.
 - Network setup should be initiated through an `INetworkService` abstraction, not directly from UI components.
 - `INetworkService` is the application boundary for network status, connection attempts, and future network events or network changes.
 - Domain/configuration models should live outside the UI project.
 - Storage implementation details should stay behind repository or persistence abstractions.
-- Do not put setup persistence logic directly in Blazor components.
-- Do not hard-code setup state or general configuration in MQTT handlers.
+- Do not put setup or onboarding persistence logic directly in Blazor components.
+- Do not hard-code setup state, onboarding state, or general configuration in MQTT handlers.
 
 General configuration may be represented by a model such as `MainConfig`.
+
+Peripheral configuration should be represented by dedicated peripheral models (for example peripheral unit + slot mapping models) and should not be mixed into `MainConfig`.
 
 The application should be able to:
 
@@ -875,6 +940,9 @@ For Phase 1:
 - Wi-Fi network scanning is deferred.
 - Changing Wi-Fi networks from a configured unit is covered by the Network Recovery journey when the unit is offline.
 - Editing general configuration after setup should be covered by a separate user journey.
+- Greenhouse name maximum length is 50 characters.
+- Greenhouse location maximum length is 50 characters.
+- Description maximum length is 100 characters.
 
 ---
 

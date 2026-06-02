@@ -9,6 +9,12 @@ Current journeys:
 - `01-Main Unit Setup.md`
 - `02-Network Recovery.md`
 - `03-Empty Dashboard.md`
+- `04-Peripheral Onboarding and Reconfiguration.md`
+
+Terminology note:
+
+- Use "setup" for Main Control Unit first-run flow.
+- Use "onboarding/reconfiguration" for Peripheral Control Unit flows.
 
 Suggested journey structure:
 

@@ -50,7 +50,6 @@ The empty rules section should:
 
 ## Deferred Journeys
 
-- Registering a new sensor unit.
-- Registering a new actuator unit.
+- Peripheral onboarding and reconfiguration (see `04-Peripheral Onboarding and Reconfiguration.md`).
 - Creating automation rules.
 - Viewing live telemetry from connected units.

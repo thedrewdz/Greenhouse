@@ -22,11 +22,10 @@ Core components include:
 
 We will separate this solution into the following components:
 
-- Greenhouse.ControlUnit        // ASP.NET Core or Worker Service
+- Greenhouse.UI                 // ASP.NET Core Blazor UI host
 - Greenhouse.Core               // domain models, device model, message contracts
 - Greenhouse.Mqtt               // MQTT topic handling, publish/subscribe
 - Greenhouse.Storage            // SQLite or LiteDB persistence
-- Greenhouse.Web                // Blazor Server / Razor Pages / minimal dashboard
 
 ## Local-First
 

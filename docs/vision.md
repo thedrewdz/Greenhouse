@@ -184,7 +184,7 @@ Phase 1 focuses on:
 - local automation rules
 - telemetry persistence
 - local dashboard
-- Dockerized deployment
+- non-containerized deployment on the main control unit
 - OTA firmware updates
 
 The initial system should already be useful without requiring any cloud services or AI integration.

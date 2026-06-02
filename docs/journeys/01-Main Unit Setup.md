@@ -9,6 +9,9 @@ This journey has two steps:
 - Network configuration
 - General configuration
 
+This journey is only for Main Control Unit first-run setup.
+It does not include peripheral unit discovery, peripheral onboarding, or peripheral slot mapping.
+
 This is a Day 1 requirement that will evolve slightly in time.
 
 ## Pre-Conditions/Assumptions
@@ -124,11 +127,11 @@ Minimum validation:
 Minimum validation:
 
 - Greenhouse Name is required.
-- Greenhouse Name should have a reasonable maximum length.
+- Greenhouse Name maximum length is 50 characters.
 - Greenhouse Location is required.
-- Greenhouse Location should have a reasonable maximum length.
+- Greenhouse Location maximum length is 50 characters.
 - Description is optional.
-- Description should have a reasonable maximum length.
+- Description maximum length is 100 characters.
 
 **Given** the user clicked the CTA. 
 **When** the input provided is invalid. 
@@ -164,4 +167,5 @@ Minimum validation:
 
 - Scanning and selecting available Wi-Fi networks.
 - Editing general configuration after setup.
+- Peripheral unit onboarding and reconfiguration (covered by `04-Peripheral Onboarding and Reconfiguration.md`).
 

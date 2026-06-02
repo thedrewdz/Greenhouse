@@ -3,13 +3,47 @@
 # Overview
 
 The greenhouse platform uses a distributed device model built around modular ESP32-based nodes.
-Each node is responsible for attached peripherals, but is essentially dumb.
+Each peripheral control unit hosts a fixed number of slots for sensor and actuator connections.
+Attached sensor and actuator MPUs are responsible for local hardware translation and canonicalization.
 
 This allows:
 - flexibility
 - future expansion
 - dynamic discovery
 - modular deployment
+
+---
+
+# Physical Peripheral Bus Model
+
+Each peripheral control unit has a fixed slot count.
+
+- Each slot uses a 4-wire cable.
+- Connected sensor and actuator MPUs share the same I2C bus on the peripheral control unit.
+- A slot may be unassigned, sensor-assigned, or actuator-assigned.
+
+## Sensor MPUs
+
+Sensors use a small onboard MPU (for example Arduino Nano or Pro class boards).
+
+- The sensor MPU owns sensor-specific hardware interactions.
+- The sensor MPU publishes canonicalized values to the hosting peripheral control unit.
+- Sensor identity uses a unique I2C address.
+
+Initial addressing convention:
+
+- 0x20-0x2F: moisture sensor family
+- Additional ranges should be reserved per sensor family as needed.
+
+In rare cases where the attached sensing hardware also uses I2C, the sensor MPU may be ESP32-based to use dual I2C buses.
+
+## Actuator MPUs
+
+Actuator MPUs receive generic instructions from the hosting peripheral control unit and translate them to actuator-specific operations.
+
+- Execute actuator-specific behavior.
+- Return canonicalized response status to the hosting peripheral control unit.
+- Keep actuator safety behavior local to the actuator module.
 
 ---
 
@@ -41,7 +75,7 @@ Examples:
 - pumps
 - fans
 - lighting
-- solanoid valves
+- solenoid valves
 
 Primary responsibilities:
 - subscribe to MQTT commands
@@ -83,11 +117,11 @@ These systems should remain logically separated from critical automation systems
 
 Each device must contain:
 
-- unique device ID -WIFI MAC address
+- unique device ID - WiFi MAC address
 - firmware version
 - hardware revision
 - capability list - analogous with connected peripherals
-- general fault id - 0 - none
+- general fault code - 0 means none
 - fault list - fault states per capability/peripheral
 
 ---
@@ -96,13 +130,13 @@ Each device must contain:
 
 Example metadata structure:
 
-```
+```json
 {
-  "deviceId": "1ADD5912AF61",
-  "hardwareRevision": "A",
-  "firmwareVersion": "1.0.0",
-  "uptimeSeconds": 92384,
-  "wifiRssi": -61,
+  "device_id": "1ADD5912AF61",
+  "hardware_revision": "A",
+  "firmware_version": "1.0.0",
+  "uptime_seconds": 92384,
+  "wifi_rssi": -61,
   "manufacturer": "GreenhousePlatform",
   "capabilities": [
     "temperature",
@@ -122,11 +156,18 @@ Example metadata structure:
 Registration process:
 
 - Boot
+- Query connected slot modules and capture current slot state
 - Connect to WiFi
 - Connect to MQTT
-- Publish heartbeat containing device metadata
+- Publish heartbeat containing device metadata and connected slot state
 - Receive configuration from main unit via MQTT
 - Enter operational state
+
+Main control unit behavior on heartbeat:
+
+- If no configuration exists for the peripheral control unit, treat it as a newly discovered unit and trigger setup/onboarding.
+- If configuration exists but discovered slot topology differs from stored configuration, trigger configuration update flow.
+- If configuration exists and topology matches, continue normal operation.
 
 # Capability-Based Design
 
@@ -159,9 +200,10 @@ Advantages:
 During startup a device:
 
 - Boot
+- Query connected slot modules and capture current slot state
 - Connect to WiFi
 - Connect to MQTT
-- Publish heartbeat containing device metadata
+- Publish heartbeat containing device metadata and connected slot state
 - Receive configuration from main unit via MQTT
 - Enter operational state
 
@@ -204,7 +246,14 @@ Heartbeat interval:
 
 - typically 30–60 seconds
 
-Heartbeat payload should be the device metadata, and could include any curent fault states (possibly general and per capability).
+Heartbeat payload should include:
+
+- Device metadata
+- Discovered slot topology
+- Current canonicalized state for connected sensors and actuators
+- Current fault states (general and per slot when available)
+
+This heartbeat model is used for both first-time discovery and subsequent restarts.
 
 # Firmware Architecture
 
@@ -267,9 +316,16 @@ Responsible for:
 
 Devices should support:
 
-- local default configuration
-- remote configuration updates
-- persistent configuration storage
+- remote configuration updates from the Main Control Unit
+- runtime application of received configuration
+
+In Phase 1, peripheral units do not persist long-term configuration. The Main Control Unit is the source of truth for configuration and sends configuration to peripherals.
+
+The Main Control Unit is also the custodian of configuration lifecycle decisions.
+
+- New peripheral discovered: prompt onboarding flow.
+- Existing peripheral changed: prompt reconfiguration flow.
+- Existing peripheral unchanged: apply stored configuration without user intervention.
 
 # Future OTA Update Model
 
@@ -318,9 +374,9 @@ These protections operate independently of the central controller.
 
 # Time Synchronization
 
-To avoid over developing, we will not attempt to maintain time on all devices.
+To avoid over-developing, we will not attempt to maintain time on all devices.
 
 - Central control unit (main unit) is responsible for timing
-- Peripheral units maintain a integer message index that is incremented with every payload published
+- Peripheral units maintain an integer message index that is incremented with every payload published
 - message index can be assigned during startup routine based on stored value from main unit.
 
