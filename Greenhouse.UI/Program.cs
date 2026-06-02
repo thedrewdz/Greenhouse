@@ -1,6 +1,6 @@
+using Greenhouse.Bluetooth;
 using Greenhouse.Core.Setup;
 using Greenhouse.Core.Setup.Abstractions;
-using Greenhouse.Core.Onboarding.Abstractions;
 using Greenhouse.Storage.Configuration;
 using Greenhouse.Mqtt;
 using Greenhouse.UI.Components;
@@ -27,8 +27,8 @@ namespace Greenhouse.UI
                 new JsonMainConfigRepository(
                     Path.Combine(builder.Environment.ContentRootPath, "App_Data", "main-config.json")));
             builder.Services.AddSingleton<INetworkService, DevelopmentNetworkService>();
-            builder.Services.AddScoped<IEdgeUnitDiscoveryService, BlueZEdgeUnitDiscoveryService>();
             builder.Services.AddScoped<SetupApplicationService>();
+            builder.Services.AddBluetoothDiscovery();
             builder.Services.AddMessaging(builder.Configuration);
             builder.Services.AddDataProtection()
                 .PersistKeysToFileSystem(

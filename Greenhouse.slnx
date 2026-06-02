@@ -1,4 +1,6 @@
 <Solution>
+  <Project Path="Greenhouse.Bluetooth.Tests/Greenhouse.Bluetooth.Tests.csproj" />
+  <Project Path="Greenhouse.Bluetooth/Greenhouse.Bluetooth.csproj" />
   <Project Path="Greenhouse.Core.Tests/Greenhouse.Core.Tests.csproj" />
   <Project Path="Greenhouse.Core/Greenhouse.Core.csproj" />
   <Project Path="Greenhouse.Mqtt.Tests/Greenhouse.Mqtt.Tests.csproj" />

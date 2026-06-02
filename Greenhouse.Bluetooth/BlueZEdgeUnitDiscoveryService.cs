@@ -1,8 +1,9 @@
 using System.Diagnostics;
 using Greenhouse.Core.Onboarding;
 using Greenhouse.Core.Onboarding.Abstractions;
+using Microsoft.Extensions.Logging;
 
-namespace Greenhouse.UI.Infrastructure;
+namespace Greenhouse.Bluetooth;
 
 public sealed class BlueZEdgeUnitDiscoveryService(
     ILogger<BlueZEdgeUnitDiscoveryService> logger)

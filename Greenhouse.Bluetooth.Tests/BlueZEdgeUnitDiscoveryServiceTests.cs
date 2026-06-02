@@ -1,6 +1,6 @@
-using Greenhouse.UI.Infrastructure;
+using Greenhouse.Bluetooth;
 
-namespace Greenhouse.UI.Tests;
+namespace Greenhouse.Bluetooth.Tests;
 
 public sealed class BlueZEdgeUnitDiscoveryServiceTests
 {
