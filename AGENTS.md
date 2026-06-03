@@ -16,6 +16,18 @@ The Greenhouse Documentation repository is the source of truth for durable proje
 
 Do not recreate those instructions locally. If this file appears to conflict with the Greenhouse Documentation repository, follow the Greenhouse Documentation repository and update this file to remove the conflict.
 
+## Local Supplemental Documentation
+
+Local documents under `docs/` are supplemental implementation guidance for this repository (Main Unit C#/.NET scope).
+
+- Start with the central documentation repository first.
+- Use local `docs/` content only as additional repository-scoped guidance.
+- If any local document conflicts with the central documentation repository, the central repository wins.
+
+Entry point for local supplemental docs:
+
+- `docs/README.md`
+
 ## Local Repository Scope
 
 Use this repository only for Main Unit application code, tests, project files, and local operational assets required by the application.
