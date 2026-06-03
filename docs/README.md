@@ -17,5 +17,6 @@ Precedence rule:
 - [Blazor UI and Backend Patterns](skills/blazor-ui-backend-patterns.md)
 - [.NET Clean Architecture](skills/dotnet-clean-architecture.md)
 - [.NET Dependency Injection without Service Locator](skills/dotnet-di-without-service-locator.md)
+- [.NET MQTT Contract Integration](skills/mqtt-contract-integration-dotnet.md)
 - [.NET Storage and Persistence](skills/dotnet-storage-and-persistence.md)
 - [.NET Testing Strategy](skills/dotnet-testing-strategy.md)

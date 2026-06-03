@@ -16,13 +16,13 @@ Keep entries factual, brief, and tied to the local repository state.
 
 ## Current Objective
 
-- Continue Main Unit implementation while keeping durable documentation in the Greenhouse Documentation repository.
-- Current local change set refactors Bluetooth/BlueZ discovery out of `Greenhouse.UI` into a dedicated infrastructure project.
+- Keep Main Unit implementation aligned with central documentation while maintaining repository-scoped supplemental guidance.
+- Current local change set adds MQTT .NET contract integration guidance under local skills and indexes it for agent discovery.
 
 ## Current Repository State
 
 - Branch: `dev`.
-- Working tree before commit: Bluetooth refactor changes pending.
+- Working tree before commit: docs skill indexing update pending (`docs/README.md`, `docs/skills/mqtt-contract-integration-dotnet.md`, and this handoff file).
 - Last pushed commit before this handoff update: `ee46b20 Add Edge Unit BLE discovery action`.
 
 ## Recent Work
@@ -35,6 +35,8 @@ Keep entries factual, brief, and tied to the local repository state.
 - Added `Greenhouse.Bluetooth.Tests` for BlueZ parser coverage.
 - Added a small `Greenhouse.UI.Tests` smoke test so the UI test project is not empty.
 - Verified with `dotnet test Greenhouse.slnx --no-restore`.
+- Added local skill guidance `docs/skills/mqtt-contract-integration-dotnet.md` for MQTT publish/subscribe/routing contract integration in .NET.
+- Updated `docs/README.md` skills index to include MQTT contract integration guidance so agents can discover and apply it.
 
 ## Decisions Made This Session
 
