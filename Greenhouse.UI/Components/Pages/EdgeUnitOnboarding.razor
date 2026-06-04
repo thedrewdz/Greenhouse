@@ -1,0 +1,208 @@
+@page "/edge-units/onboarding"
+@using Greenhouse.Core.Onboarding
+@implements IDisposable
+@inject EdgeUnitConfigurationApplicationService EdgeUnitConfigurationService
+
+<PageTitle>Edge Units</PageTitle>
+
+<section class="setup-header">
+    <p class="eyebrow">Edge Units</p>
+    <h1>Add Edge Unit</h1>
+</section>
+
+<section class="setup-shell">
+    <div class="setup-panel">
+        <div class="action-row">
+            <button class="touch-button" type="button" @onclick="ScanAsync" disabled="@isScanning">Scan</button>
+            @if (isScanning)
+            {
+                <span class="scan-status" role="status">Scanning for GH-Edge devices...</span>
+            }
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(statusMessage))
+        {
+            <p class="scan-status">@statusMessage</p>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <p class="scan-status scan-error" role="alert">@errorMessage</p>
+        }
+
+        @if (hasScanned && discoveredEdgeUnits.Count == 0 && string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <div class="scan-status">No Edge Units found.</div>
+        }
+
+        @if (discoveredEdgeUnits.Count > 0)
+        {
+            <ul class="edge-unit-list" aria-label="Discovered Edge Units">
+                @foreach (var edgeUnit in discoveredEdgeUnits)
+                {
+                    <li class="selectable-edge-unit">
+                        <button type="button" @onclick="() => SelectEdgeUnit(edgeUnit)">
+                            <strong>@edgeUnit.Name</strong>
+                            <span>@edgeUnit.Address</span>
+                            @if (edgeUnit.Rssi is not null)
+                            {
+                                <span>@edgeUnit.Rssi dBm</span>
+                            }
+                        </button>
+                    </li>
+                }
+            </ul>
+        }
+    </div>
+
+    @if (selectedEdgeUnit is not null)
+    {
+        <div class="setup-panel">
+            <h2>@selectedEdgeUnit.Name</h2>
+
+            <div class="form-field">
+                <label for="device-id">Device ID</label>
+                <input id="device-id" class="form-control" @bind="deviceId" />
+            </div>
+
+            <div class="form-field">
+                <label for="wifi-ssid">Wi-Fi SSID</label>
+                <input id="wifi-ssid" class="form-control" @bind="wifiSsid" />
+            </div>
+
+            <div class="form-field">
+                <label for="wifi-password">Wi-Fi password</label>
+                <input id="wifi-password" class="form-control" type="password" @bind="wifiPassword" />
+            </div>
+
+            <div class="form-field">
+                <label for="mqtt-uri">MQTT broker URI</label>
+                <input id="mqtt-uri" class="form-control" @bind="mqttBrokerUri" />
+            </div>
+
+            <div class="form-field">
+                <label for="heartbeat">Heartbeat interval override</label>
+                <input id="heartbeat" class="form-control" type="number" @bind="heartbeatIntervalMs" />
+            </div>
+
+            <button class="touch-button" type="button" @onclick="ProvisionAsync" disabled="@isProvisioning">Provision</button>
+        </div>
+    }
+</section>
+
+@code {
+    private bool isScanning;
+    private bool hasScanned;
+    private bool isProvisioning;
+    private string? statusMessage;
+    private string? errorMessage;
+    private IReadOnlyList<DiscoveredEdgeUnit> discoveredEdgeUnits = Array.Empty<DiscoveredEdgeUnit>();
+    private DiscoveredEdgeUnit? selectedEdgeUnit;
+    private CancellationTokenSource? scanCancellation;
+
+    private string deviceId = string.Empty;
+    private string wifiSsid = string.Empty;
+    private string wifiPassword = string.Empty;
+    private string mqttBrokerUri = "mqtt://localhost";
+    private int? heartbeatIntervalMs = 30000;
+
+    private async Task ScanAsync()
+    {
+        if (isScanning)
+        {
+            return;
+        }
+
+        scanCancellation?.Dispose();
+        scanCancellation = new CancellationTokenSource();
+        isScanning = true;
+        hasScanned = true;
+        selectedEdgeUnit = null;
+        statusMessage = null;
+        errorMessage = null;
+        discoveredEdgeUnits = Array.Empty<DiscoveredEdgeUnit>();
+
+        try
+        {
+            var result = await EdgeUnitConfigurationService.ScanAsync(scanCancellation.Token);
+            if (!result.Succeeded)
+            {
+                errorMessage = result.ErrorMessage ?? "Unable to scan for Edge Units.";
+                return;
+            }
+
+            discoveredEdgeUnits = result.EdgeUnits;
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        finally
+        {
+            isScanning = false;
+        }
+    }
+
+    private void SelectEdgeUnit(DiscoveredEdgeUnit edgeUnit)
+    {
+        selectedEdgeUnit = edgeUnit;
+        deviceId = ExtractDeviceId(edgeUnit);
+        statusMessage = null;
+        errorMessage = null;
+    }
+
+    private async Task ProvisionAsync()
+    {
+        if (selectedEdgeUnit is null || isProvisioning)
+        {
+            return;
+        }
+
+        errorMessage = null;
+        statusMessage = null;
+
+        if (!Uri.TryCreate(mqttBrokerUri, UriKind.Absolute, out var brokerUri))
+        {
+            errorMessage = "MQTT broker URI must be an absolute URI.";
+            return;
+        }
+
+        isProvisioning = true;
+        try
+        {
+            var result = await EdgeUnitConfigurationService.ProvisionAsync(
+                new EdgeUnitProvisioningRequest(
+                    selectedEdgeUnit,
+                    deviceId,
+                    wifiSsid,
+                    wifiPassword,
+                    brokerUri,
+                    heartbeatIntervalMs));
+
+            if (!result.Succeeded)
+            {
+                errorMessage = $"{result.ErrorCode}: {result.ErrorMessage}";
+                return;
+            }
+
+            statusMessage = "Provisioning payload accepted. Waiting for the first heartbeat from this Edge Unit.";
+        }
+        finally
+        {
+            isProvisioning = false;
+        }
+    }
+
+    private static string ExtractDeviceId(DiscoveredEdgeUnit edgeUnit)
+    {
+        const string prefix = "GH-Edge-";
+        return edgeUnit.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+            ? edgeUnit.Name[prefix.Length..]
+            : edgeUnit.Address.Replace(":", string.Empty, StringComparison.OrdinalIgnoreCase);
+    }
+
+    public void Dispose()
+    {
+        scanCancellation?.Cancel();
+        scanCancellation?.Dispose();
+    }
+}

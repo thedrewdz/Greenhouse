@@ -1,14 +1,12 @@
 @page "/"
 @using Greenhouse.Core.Configuration
 @using Greenhouse.Core.Onboarding
-@using Greenhouse.Core.Onboarding.Abstractions
 @using Greenhouse.Core.Setup
 @using Greenhouse.Core.Setup.Abstractions
-@implements IDisposable
 @inject SetupApplicationService SetupService
 @inject IMainConfigRepository MainConfigRepository
 @inject INetworkService NetworkService
-@inject IEdgeUnitDiscoveryService EdgeUnitDiscoveryService
+@inject EdgeUnitConfigurationApplicationService EdgeUnitConfigurationService
 @inject NavigationManager Navigation
 
 <PageTitle>Home</PageTitle>
@@ -46,39 +44,28 @@ else if (config is not null)
         <div class="dashboard-tile">
             <div class="tile-heading">
                 <span>Edge Units</span>
-                <strong>0</strong>
+                <strong>@edgeUnits.Count</strong>
             </div>
-            <p>Connect an Edge Unit to unlock telemetry, control, and automation.</p>
+            <p>@GetEdgeUnitSummary()</p>
 
             <div class="tile-actions">
-                <button class="icon-button" type="button" @onclick="ScanForEdgeUnitsAsync" disabled="@isScanningForEdgeUnits" aria-label="Add Edge Unit" title="Add Edge Unit">
+                <a class="icon-button" href="edge-units/onboarding" aria-label="Add Edge Unit" title="Add Edge Unit">
                     +
-                </button>
+                </a>
             </div>
 
-            @if (isScanningForEdgeUnits)
-            {
-                <div class="scan-status" role="status">Scanning for GH-Edge devices...</div>
-            }
-            else if (!string.IsNullOrWhiteSpace(edgeUnitScanError))
-            {
-                <div class="scan-status scan-error" role="alert">@edgeUnitScanError</div>
-            }
-            else if (hasScannedForEdgeUnits && discoveredEdgeUnits.Count == 0)
-            {
-                <div class="scan-status">No Edge Units found.</div>
-            }
-            else if (discoveredEdgeUnits.Count > 0)
+            @if (edgeUnits.Count > 0)
             {
                 <ul class="edge-unit-list" aria-label="Discovered Edge Units">
-                    @foreach (var edgeUnit in discoveredEdgeUnits)
+                    @foreach (var edgeUnit in edgeUnits)
                     {
                         <li>
                             <strong>@edgeUnit.Name</strong>
-                            <span>@edgeUnit.Address</span>
-                            @if (edgeUnit.Rssi is not null)
+                            <span>@edgeUnit.DeviceId</span>
+                            <span>@edgeUnit.Status</span>
+                            @if (edgeUnit.Status != EdgeUnitConfigurationStatus.Configured)
                             {
-                                <span>@edgeUnit.Rssi dBm</span>
+                                <a href="@($"edge-units/{edgeUnit.DeviceId}/configure")">Configure</a>
                             }
                         </li>
                     }
@@ -100,11 +87,7 @@ else if (config is not null)
     private bool isLoading = true;
     private MainConfig? config;
     private bool isNetworkConnected;
-    private bool isScanningForEdgeUnits;
-    private bool hasScannedForEdgeUnits;
-    private string? edgeUnitScanError;
-    private IReadOnlyList<DiscoveredEdgeUnit> discoveredEdgeUnits = Array.Empty<DiscoveredEdgeUnit>();
-    private CancellationTokenSource? edgeUnitScanCancellation;
+    private IReadOnlyList<EdgeUnitConfiguration> edgeUnits = Array.Empty<EdgeUnitConfiguration>();
 
     protected override async Task OnInitializedAsync()
     {
@@ -117,49 +100,20 @@ else if (config is not null)
 
         config = await MainConfigRepository.GetAsync();
         isNetworkConnected = await NetworkService.IsConnectedAsync();
+        edgeUnits = await EdgeUnitConfigurationService.GetConfigurationsAsync();
         isLoading = false;
     }
 
-    private async Task ScanForEdgeUnitsAsync()
+    private string GetEdgeUnitSummary()
     {
-        if (isScanningForEdgeUnits)
+        if (edgeUnits.Count == 0)
         {
-            return;
+            return "Connect an Edge Unit to unlock telemetry, control, and automation.";
         }
 
-        edgeUnitScanCancellation?.Dispose();
-        edgeUnitScanCancellation = new CancellationTokenSource();
-        isScanningForEdgeUnits = true;
-        hasScannedForEdgeUnits = true;
-        edgeUnitScanError = null;
-        discoveredEdgeUnits = Array.Empty<DiscoveredEdgeUnit>();
-
-        try
-        {
-            var result = await EdgeUnitDiscoveryService.ScanAsync(
-                TimeSpan.FromSeconds(10),
-                edgeUnitScanCancellation.Token);
-
-            if (!result.Succeeded)
-            {
-                edgeUnitScanError = result.ErrorMessage ?? "Unable to scan for Edge Units.";
-                return;
-            }
-
-            discoveredEdgeUnits = result.EdgeUnits;
-        }
-        catch (OperationCanceledException)
-        {
-        }
-        finally
-        {
-            isScanningForEdgeUnits = false;
-        }
-    }
-
-    public void Dispose()
-    {
-        edgeUnitScanCancellation?.Cancel();
-        edgeUnitScanCancellation?.Dispose();
+        var needsConfiguration = edgeUnits.Count(edgeUnit => edgeUnit.Status != EdgeUnitConfigurationStatus.Configured);
+        return needsConfiguration == 0
+            ? "All known Edge Units are configured."
+            : $"{needsConfiguration} Edge Unit configuration task(s) need attention.";
     }
 }

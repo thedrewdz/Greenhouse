@@ -1,0 +1,150 @@
+@page "/edge-units/{DeviceId}/configure"
+@using Greenhouse.Core.Messaging.Messages
+@using Greenhouse.Core.Onboarding
+@inject EdgeUnitConfigurationApplicationService EdgeUnitConfigurationService
+@inject NavigationManager Navigation
+
+<PageTitle>Configure Edge Unit</PageTitle>
+
+@if (isLoading)
+{
+    <p>Loading...</p>
+}
+else if (configuration is null)
+{
+    <p>Edge Unit not found.</p>
+}
+else
+{
+    <section class="setup-header">
+        <p class="eyebrow">Edge Unit</p>
+        <h1>@configuration.Name</h1>
+    </section>
+
+    <section class="setup-shell">
+        <div class="setup-panel">
+            <div class="form-field">
+                <label for="unit-name">Name</label>
+                <input id="unit-name" class="form-control" @bind="name" />
+            </div>
+
+            <div class="form-field">
+                <label for="unit-location">Location</label>
+                <input id="unit-location" class="form-control" @bind="location" />
+            </div>
+
+            @foreach (var slot in slots)
+            {
+                <div class="slot-editor">
+                    <strong>Slot @slot.SlotId</strong>
+                    <span>@slot.Direction @slot.I2cAddress</span>
+                    <div class="form-field">
+                        <label for="@($"capability-{slot.SlotId}")">Capability</label>
+                        <input id="@($"capability-{slot.SlotId}")" class="form-control" @bind="slot.Capability" />
+                    </div>
+                    <div class="form-field">
+                        <label for="@($"label-{slot.SlotId}")">Display label</label>
+                        <input id="@($"label-{slot.SlotId}")" class="form-control" @bind="slot.DisplayLabel" />
+                    </div>
+                </div>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(errorMessage))
+            {
+                <p class="scan-status scan-error" role="alert">@errorMessage</p>
+            }
+
+            <button class="touch-button" type="button" @onclick="SaveAsync">Save</button>
+        </div>
+    </section>
+}
+
+@code {
+    [Parameter]
+    public string DeviceId { get; set; } = string.Empty;
+
+    private bool isLoading = true;
+    private EdgeUnitConfiguration? configuration;
+    private string name = string.Empty;
+    private string? location;
+    private string? errorMessage;
+    private List<SlotEditorModel> slots = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        configuration = await EdgeUnitConfigurationService.GetConfigurationAsync(DeviceId);
+        if (configuration is not null)
+        {
+            name = configuration.Name;
+            location = configuration.Location;
+            slots = BuildSlotEditors(configuration).ToList();
+        }
+
+        isLoading = false;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (configuration is null)
+        {
+            return;
+        }
+
+        var result = await EdgeUnitConfigurationService.SaveRuntimeMappingAsync(
+            new EdgeUnitMappingRequest(
+                configuration.DeviceId,
+                name,
+                location,
+                slots.Select(slot => new EdgeUnitSlotMappingRequest(
+                    slot.SlotId,
+                    slot.Direction,
+                    slot.I2cAddress,
+                    slot.Capability,
+                    slot.DisplayLabel)).ToArray()));
+
+        if (!result.IsValid)
+        {
+            errorMessage = result.Errors[0];
+            return;
+        }
+
+        Navigation.NavigateTo("/");
+    }
+
+    private static IEnumerable<SlotEditorModel> BuildSlotEditors(EdgeUnitConfiguration configuration)
+    {
+        var heartbeatSlots = configuration.LastHeartbeat?.Slots ?? Array.Empty<HeartbeatSlotMessage>();
+        if (heartbeatSlots.Count > 0)
+        {
+            return heartbeatSlots
+                .OrderBy(slot => slot.SlotId)
+                .Select(slot => new SlotEditorModel
+                {
+                    SlotId = slot.SlotId,
+                    Direction = slot.Direction,
+                    I2cAddress = slot.I2cAddress,
+                    Capability = slot.Capability
+                });
+        }
+
+        return configuration.SlotMappings
+            .OrderBy(slot => slot.SlotId)
+            .Select(slot => new SlotEditorModel
+            {
+                SlotId = slot.SlotId,
+                Direction = slot.Direction,
+                I2cAddress = slot.I2cAddress,
+                Capability = slot.Capability,
+                DisplayLabel = slot.DisplayLabel
+            });
+    }
+
+    private sealed class SlotEditorModel
+    {
+        public int SlotId { get; init; }
+        public string Direction { get; init; } = string.Empty;
+        public string I2cAddress { get; init; } = string.Empty;
+        public string Capability { get; set; } = string.Empty;
+        public string? DisplayLabel { get; set; }
+    }
+}

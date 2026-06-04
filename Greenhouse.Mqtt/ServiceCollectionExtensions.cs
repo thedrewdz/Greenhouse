@@ -1,5 +1,6 @@
 using Greenhouse.Core.Messaging;
 using Greenhouse.Core.Messaging.Abstractions;
+using Greenhouse.Core.Onboarding.Abstractions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -26,7 +27,8 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton<IMessagingRepository, Repository>();
         services.AddSingleton<ICommandPublisher, CommandPublisher>();
-        services.AddSingleton<IMessageRouter, LoggingMessageRouter>();
+        services.AddSingleton<IMessageRouter, EdgeUnitMessageRouter>();
+        services.AddSingleton<IEdgeUnitConfigurationPublisher, LoggingEdgeUnitConfigurationPublisher>();
         services.AddHostedService<ConnectedService>();
 
         return services;

@@ -7,7 +7,8 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddBluetoothDiscovery(this IServiceCollection services)
     {
-        services.AddScoped<IEdgeUnitDiscoveryService, BlueZEdgeUnitDiscoveryService>();
+        services.AddSingleton<IEdgeUnitDiscoveryService, BlueZEdgeUnitDiscoveryService>();
+        services.AddSingleton<IEdgeUnitProvisioningService, UnavailableEdgeUnitProvisioningService>();
         return services;
     }
 }
